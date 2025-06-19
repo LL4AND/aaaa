@@ -30,7 +30,7 @@ def test_session_state(global_test_state):
     # 返回全局状态引用
     return global_test_state
 
-load_dotenv(dotenv_path="/Users/wangwanyu/actions/tests/.env")
+
 @pytest.fixture(scope="module")
 def driver():
     # 配置 Chrome 选项（无头模式、禁用沙盒等）
