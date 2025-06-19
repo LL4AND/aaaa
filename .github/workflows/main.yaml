@@ -15,6 +15,15 @@ env:
 jobs:
   build:
     runs-on: ${{ matrix.os }}
+    env:
+      PROVIDER_TYPE: ${{ secrets.PROVIDER_TYPE }}
+      CHAT_API_KEY: ${{ secrets.CHAT_API_KEY }}
+      CHAT_ENDPOINT: ${{ secrets.CHAT_ENDPOINT }}
+      CHAT_MODEL_NAME: ${{ secrets.CHAT_MODEL_NAME }}
+      CLOUD_SERVICE_API_KEY: ${{ secrets.CLOUD_SERVICE_API_KEY }}
+      EMBEDDING_API_KEY: ${{ secrets.EMBEDDING_API_KEY }}
+      EMBEDDING_ENDPOINT: ${{ secrets.EMBEDDING_ENDPOINT }}
+      EMBEDDING_MODEL_NAME: ${{ secrets.EMBEDDING_MODEL_NAME }}
     strategy:
       matrix:
         os: [macos-latest]
