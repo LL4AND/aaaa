@@ -1,0 +1,116 @@
+name: Deployment_main
+
+on:
+  workflow_dispatch:
+  push:
+    branches: [ ]
+  
+
+env:
+  PROJECT_NAME: Second-Me
+  DEPLOY_ENV: pro
+  SERVICE_PORT: 3000
+  DISPLAY: :99
+
+jobs:
+  build:
+    runs-on: ${{ matrix.os }}
+    strategy:
+      matrix:
+        os: [macos-latest]
+        python-version: ["3.12"]
+        include:
+          - os: macos-latest
+            use_docker: false
+          
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Python ${{ matrix.python-version }}
+        uses: actions/setup-python@v5
+        with:
+          python-version: ${{ matrix.python-version }}
+
+      - name: Determine USE_DOCKER
+        id: docker_check
+        shell: bash
+        run: |
+          echo "USE_DOCKER=${{matrix.use_docker}}" >> $GITHUB_ENV
+      
+
+
+      - name: Install dependencies
+        shell: bash
+        run: |
+          brew install nodejs cmake libuv poetry
+          
+     
+          # 验证make安装
+          make --version
+
+
+      - name: Start service  
+        shell: bash
+        run: |
+          python -m venv .venv
+          source .venv/bin/activate
+          # 安装Python依赖
+          pip install selenium webdriver-manager pytest pytest-selenium pytest-dependency pytest-order
+          make setup
+          make restart
+          sleep 30
+
+
+      - name: Check service status
+        shell: bash
+        run: |
+          lsof -iTCP:$SERVICE_PORT -sTCP:LISTEN || true
+          curl -v http://localhost:${{ env.SERVICE_PORT }} || true
+
+
+ 
+      - name: Install Chrome browser
+        uses: browser-actions/setup-chrome@v1
+        with:
+          chrome-version: stable
+
+      - name: Setup Xvfb
+        uses: GabrielBB/xvfb-action@v1
+        with:
+          
+          run: echo "Xvfb started"  
+
+
+      - name: Smoke test 
+        id: selenium_test
+        run: |
+          export DISPLAY=:99
+    
+          # 更健壮的服务等待机制
+          echo "Waiting for service to be fully ready..."
+          for i in {1..30}; do
+            HTTP_CODE=$(curl -s -o /dev/null -w "%{http_code}" http://localhost:${{ env.SERVICE_PORT }})
+            echo "Attempt $i: HTTP $HTTP_CODE"
+      
+            if [ "$HTTP_CODE" = "200" ]; then
+              echo "Service is ready!"
+              break
+            fi
+      
+            # 如果是500错误，立即显示日志
+            if [ "$HTTP_CODE" = "500" ]; then
+              echo "Service returned 500 error"
+              if [ "$USE_DOCKER" = "true" ]; then
+                docker logs $(docker ps -q) || true
+              fi
+            fi
+      
+            sleep 5
+          done
+
+          # 详细检查服务状态
+          echo "Final service check:"
+          curl -v http://localhost:${{ env.SERVICE_PORT }}
+          # 激活虚拟环境并运行测试
+          source .venv/bin/activate
+          pytest tests/ --log-cli-level=DEBUG  # 启用详细日志
